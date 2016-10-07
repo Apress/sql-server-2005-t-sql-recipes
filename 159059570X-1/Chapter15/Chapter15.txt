@@ -1,0 +1,108 @@
+--Creating an HTTP Endpoint
+
+CREATE PROCEDURE dbo.usp_SEL_SpecialOffer
+AS
+SELECT p.Name,
+o.Description,
+o.StartDate,
+o.EndDate,
+o.MinQty,
+o.MaxQty
+FROM Sales.SpecialOffer o
+INNER JOIN Sales.SpecialOfferProduct op ON
+o.SpecialOfferID = op.SpecialOfferID
+INNER JOIN Production.Product p ON
+op.ProductID = p.ProductID
+WHERE Description NOT IN (’No Discount’)
+ORDER BY p.Name
+GO
+
+CREATE ENDPOINT AW_SpecialOffers
+STATE = STARTED
+AS HTTP
+(
+PATH = ’/ProductOffers’,
+AUTHENTICATION = (INTEGRATED),
+PORTS = (CLEAR),
+SITE = ’JOEPROD’
+)
+FOR SOAP
+(
+WEBMETHOD ’ProductSpecialOffer’
+(NAME=’AdventureWorks.dbo.usp_SEL_SpecialOffer’),
+WSDL = DEFAULT,
+DATABASE = ’AdventureWorks’,
+NAMESPACE = DEFAULT
+)
+
+
+SELECT endpoint_id, protocol_desc, type_desc, state_desc
+FROM sys.endpoints
+WHERE name = ’AW_SpecialOffers’
+
+SELECT site, url_path, clear_port, is_integrated_auth_enabled
+FROM sys.http_endpoints
+WHERE name = ’AW_SpecialOffers’
+
+SELECT default_namespace, session_timeout, is_xml_charset_enforced
+FROM sys.soap_endpoints
+WHERE name = ’AW_SpecialOffers’
+
+SELECT method_alias, object_name
+FROM sys.endpoint_webmethods w
+INNER JOIN sys.endpoints e ON
+w.endpoint_id = e.endpoint_id
+WHERE e.name = ’AW_SpecialOffers’
+
+--Managing HTTP Endpoint Security
+
+USE master
+GO
+CREATE LOGIN [JOEPROD\TestUser]
+FROM WINDOWS
+WITH DEFAULT_DATABASE=AdventureWorks
+GO
+
+USE AdventureWorks
+GO
+CREATE USER TestUser
+FOR LOGIN [JOEPROD\TestUser]
+GO
+
+USE AdventureWorks
+GO
+GRANT EXECUTE ON dbo.usp_SEL_SpecialOffer
+TO TestUser
+GO
+
+USE master
+GO
+GRANT CONNECT ON ENDPOINT:: AW_SpecialOffers
+TO [JOEPROD\TestUser]
+
+--Modifying an HTTP Endpoint
+
+-- HTTP change
+ALTER ENDPOINT AW_SpecialOffers
+AS HTTP
+(SITE = ’TESTSRV’)
+
+-- Add a new web method
+ALTER ENDPOINT AW_SpecialOffers
+FOR SOAP
+(ADD WEBMETHOD ’TransactionHistory’
+(name=’AdventureWorks.dbo.usp_SEL_Production_TransactionHistory’))
+
+-- Endpoint change
+ALTER ENDPOINT AW_SpecialOffers
+STATE = DISABLED
+
+--Removing an HTTP Endpoint
+
+DROP ENDPOINT AW_SpecialOffers
+
+--Reserving Namespaces
+
+EXEC sp_reserve_http_namespace N’http://JOEPROD:80/MyNewEndpoint’
+
+EXEC sp_delete_http_namespace_reservation N’http://JOEPROD:80/MyNewEndpoint’

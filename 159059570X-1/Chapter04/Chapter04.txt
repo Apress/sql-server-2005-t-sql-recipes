@@ -1,0 +1,506 @@
+--Creating a Table
+
+CREATE TABLE Person.EducationType
+(EducationTypeID int NOT NULL,
+EducationTypeNM varchar(40) NOT NULL)
+GO
+
+--Adding a Column to an Existing Table
+
+ALTER TABLE HumanResources.Employee
+ADD Latest_EducationTypeID int NULL
+
+--Changing a Column Definition
+
+-- Make it Nullable
+ALTER TABLE HumanResources.Employee
+ALTER COLUMN Gender nchar(1) NULL
+
+-- Expanded nvarchar(256) to nvarchar(300)
+ALTER TABLE HumanResources.Employee
+ALTER COLUMN LoginID nvarchar(300) NOT NULL
+
+--Creating a Computed Column
+
+ALTER TABLE Production.TransactionHistory
+ADD CostPerUnit AS (ActualCost/Quantity)
+
+SELECT TOP 1 CostPerUnit, Quantity, ActualCost
+FROM Production.TransactionHistory
+WHERE Quantity > 10
+ORDER BY ActualCost DESC
+
+CREATE TABLE HumanResources.CompanyStatistic
+(CompanyID int NOT NULL,
+StockTicker char(4) NOT NULL,
+SharesOutstanding int NOT NULL,
+Shareholders int NOT NULL,
+AvgSharesPerShareholder AS (SharesOutStanding/Shareholders) PERSISTED)
+
+--Dropping a Table Column
+
+ALTER TABLE HumanResources.Employee
+DROP COLUMN Latest_EducationTypeID
+
+--Reporting Table Information
+
+EXEC sp_help 'HumanResources.Employee'
+
+--Dropping a Table
+
+DROP TABLE HumanResources.EWCompany
+
+--Viewing Collation Metadata
+
+SELECT SERVERPROPERTY('Collation')
+
+SELECT DATABASEPROPERTYEX ( 'AdventureWorks' , 'Collation' )
+
+SELECT description
+FROM fn_helpcollations()
+WHERE name = 'SQL_Latin1_General_CP1_CI_AS'
+
+--Designating a Column's Collation
+
+ALTER TABLE Production.Product
+ADD IcelandicProductName nvarchar(50) COLLATE Icelandic_CI_AI,
+UkrainianProductName nvarchar(50) COLLATE Ukrainian_CI_AS
+
+--Creating a Table with a Primary Key
+
+CREATE TABLE Person.CreditRating(
+CreditRatingID int NOT NULL PRIMARY KEY,
+CreditRatingNM varchar(40) NOT NULL)
+GO
+
+CREATE TABLE Person.EmployeeEducationType (
+EmployeeID int NOT NULL,
+EducationTypeID int NOT NULL,
+CONSTRAINT PK_EmployeeEducationType
+PRIMARY KEY (EmployeeID, EducationTypeID))
+
+--Adding a Primary Key Constraint to an Existing Table
+
+ALTER TABLE Person.EducationType
+ADD CONSTRAINT PK_EducationType
+PRIMARY KEY (EducationTypeID)
+
+--Creating a Table with a Foreign Key Reference
+
+CREATE TABLE Person.EmployeeCreditRating(
+EmployeeCreditRating int NOT NULL PRIMARY KEY,
+EmployeeID int NOT NULL,
+CreditRatingID int NOT NULL,
+CONSTRAINT FK_EmployeeCreditRating_Employee
+FOREIGN KEY(EmployeeID)
+REFERENCES HumanResources.Employee(EmployeeID),
+CONSTRAINT FK_EmployeeCreditRating_CreditRating
+FOREIGN KEY(CreditRatingID)
+REFERENCES Person.CreditRating(CreditRatingID)
+)
+
+--Adding a Foreign Key to an Existing Table
+
+ALTER TABLE Person.EmergencyContact
+ADD CONSTRAINT FK_EmergencyContact_Employee
+FOREIGN KEY (EmployeeID)
+REFERENCES HumanResources.Employee (EmployeeID)
+
+--Creating Recursive Foreign Key References
+
+CREATE TABLE HumanResources.Company
+(CompanyID int NOT NULL PRIMARY KEY,
+ParentCompanyID int NULL,
+CompanyName varchar(25) NOT NULL,
+CONSTRAINT FK_Company_Company
+FOREIGN KEY (ParentCompanyID)
+REFERENCES HumanResources.Company(CompanyID))
+GO
+
+INSERT HumanResources.Company
+(CompanyID, CompanyName)
+VALUES(1, 'MegaCorp')
+
+INSERT HumanResources.Company
+(CompanyID, ParentCompanyID, CompanyName)
+VALUES(2, 1, 'Medi-Corp')
+
+INSERT HumanResources.Company
+(CompanyID, ParentCompanyID, CompanyName)
+VALUES(3, 8, 'Tiny-Corp')
+
+--Allowing Cascading Changes in Foreign Keys
+
+CREATE TABLE Person.EmployeeEducationType(
+EmployeeEducationTypeID int NOT NULL PRIMARY KEY,
+EmployeeID int NOT NULL,
+EducationTypeID int NULL,
+CONSTRAINT FK_EmployeeEducationType_Employee
+FOREIGN KEY(EmployeeID)
+REFERENCES HumanResources.Employee(EmployeeID)
+ON DELETE CASCADE,
+CONSTRAINT FK_EmployeeEducationType_EducationType
+FOREIGN KEY(EducationTypeID)
+REFERENCES Person.EducationType(EducationTypeID)
+ON UPDATE SET NULL)
+
+--Using the IDENTITY Property During Table Creation
+
+CREATE TABLE HumanResources.CompanyAuditHistory
+(CompanyAuditHistory int NOT NULL IDENTITY(1,1) PRIMARY KEY,
+CompanyID int NOT NULL ,
+AuditReasonDESC varchar(50) NOT NULL,
+AuditDT datetime NOT NULL DEFAULT GETDATE())
+
+INSERT HumanResources.CompanyAuditHistory
+(CompanyID, AuditReasonDESC, AuditDT)
+VALUES
+(1, 'Bad 1099 numbers.', '6/1/2005')
+INSERT HumanResources.CompanyAuditHistory
+(CompanyID, AuditReasonDESC, AuditDT)
+VALUES
+(1, 'Missing financial statement.', '7/1/2005')
+
+SELECT CompanyAuditHistory, AuditReasonDESC
+FROM HumanResources.CompanyAuditHistory
+
+--Using DBCC CHECKIDENT to View and Correct IDENTITY
+SeedValues
+
+DBCC CHECKIDENT('HumanResources.CompanyAuditHistory', NORESEED)
+
+DBCC CHECKIDENT ('HumanResources.CompanyAuditHistory', RESEED, 50)
+
+--Using the ROWGUIDCOL Property
+
+CREATE TABLE HumanResources.BuildingAccess
+( BuildingEntryExitID uniqueidentifier ROWGUIDCOL DEFAULT NEWID(),
+EmployeeID int NOT NULL,
+AccessTime datetime NOT NULL,
+DoorID int NOT NULL)
+
+INSERT HumanResources.BuildingAccess
+(EmployeeID, AccessTime, DoorID)
+VALUES (32, GETDATE(), 2)
+
+SELECT ROWGUIDCOL,
+EmployeeID,
+AccessTime,
+DoorID
+FROM HumanResources.BuildingAccess
+
+--Creating a Unique Constraint
+
+CREATE TABLE HumanResources.EmployeeAnnualReview(
+EmployeeAnnualReviewID int NOT NULL PRIMARY KEY,
+EmployeeID int NOT NULL,
+AnnualReviewSummaryDESC varchar(900) NOT NULL UNIQUE)
+
+CREATE TABLE Person.EmergencyContact (
+EmergencyContactID int NOT NULL PRIMARY KEY,
+EmployeeID int NOT NULL,
+ContactFirstNM varchar(50) NOT NULL,
+ContactLastNM varchar(50) NOT NULL,
+ContactPhoneNBR varchar(25) NOT NULL,
+CONSTRAINT UNQ_EmergencyContact_FirstNM_LastNM_PhoneNBR
+UNIQUE (ContactFirstNM, ContactLastNM, ContactPhoneNBR))
+
+--Adding a UNIQUE Constraint to an Existing Table
+
+ALTER TABLE Production.Culture
+ADD CONSTRAINT UNQ_Culture_Name
+UNIQUE (Name)
+
+--Using CHECK Constraints
+
+CREATE TABLE Person.EmployeeEducationType(
+EmployeeEducationTypeID int NOT NULL PRIMARY KEY,
+EmployeeID int NOT NULL,
+EducationTypeID int NULL,
+GPA numeric(4,3) NOT NULL CHECK (GPA > 2.5 AND GPA <=4.0))
+
+
+CREATE TABLE Person.EmployeeEducationType(
+EmployeeEducationTypeID int NOT NULL PRIMARY KEY,
+EmployeeID int NOT NULL,
+EducationTypeID int NULL,
+GPA numeric(4,3) NOT NULL,
+CONSTRAINT CK_EmployeeEducationType
+CHECK (EducationTypeID > 1 AND GPA > 2.5 AND GPA <=4.0))
+
+--Adding a CHECK Constraint to an Existing Table
+
+ALTER TABLE Person.ContactType WITH NOCHECK
+ADD CONSTRAINT CK_ContactType
+CHECK (Name NOT LIKE '%assistant%')
+
+--Disabling and Enabling a Constraint
+
+INSERT Purchasing.VendorContact
+(VendorID, ContactID, ContactTypeID)
+VALUES (93, 643, 888)
+
+ALTER TABLE Purchasing.VendorContact
+NOCHECK CONSTRAINT FK_VendorContact_ContactType_ContactTypeID
+
+INSERT Purchasing.VendorContact
+(VendorID, ContactID, ContactTypeID)
+VALUES (93, 643, 888)
+
+DELETE Purchasing.VendorContact
+WHERE VendorID = 93 AND
+ContactID = 643 AND
+ContactTypeID = 888
+
+ALTER TABLE Purchasing.VendorContact
+CHECK CONSTRAINT FK_VendorContact_ContactType_ContactTypeID
+
+-- disable checking on all constraints
+ALTER TABLE Purchasing.VendorContact
+NOCHECK CONSTRAINT ALL
+
+-- enable checking on all constraints
+ALTER TABLE Purchasing.VendorContact
+CHECK CONSTRAINT ALL
+
+-- Using a DEFAULT Constraint During Table Creation
+
+CREATE TABLE Person.EmployeeEducationType(
+EmployeeEducationTypeID int NOT NULL PRIMARY KEY,
+EmployeeID int NOT NULL,
+EducationTypeID int NOT NULL DEFAULT 1,
+GPA numeric(4,3) NOT NULL )
+
+--Adding a DEFAULT Constraint to an Existing Table
+
+ALTER TABLE HumanResources.Company
+ADD CONSTRAINT DF_Company_ParentCompanyID
+DEFAULT 1
+FOR ParentCompanyID
+
+--Dropping a Constraint from a Table
+
+ALTER TABLE HumanResources.Company
+DROP CONSTRAINT DF_Company_ParentCompanyID
+
+--Using a Temporary Table for Multiple Lookups Within a Batch
+
+CREATE TABLE #ProductCostStatistics
+( ProductID int NOT NULL PRIMARY KEY,
+AvgStandardCost money NOT NULL,
+ProductCount int NOT NULL)
+GO
+
+INSERT #ProductCostStatistics
+(ProductID, AvgStandardCost, ProductCount)
+SELECT ProductID,
+AVG(StandardCost) AvgStandardCost,
+COUNT(ProductID) Rowcnt
+FROM Production.ProductCostHistory
+GROUP BY ProductID
+GO
+
+SELECT TOP 3 *
+FROM #ProductCostStatistics
+ORDER BY AvgStandardCost ASC
+
+SELECT TOP 3 *
+FROM #ProductCostStatistics
+ORDER BY AvgStandardCost DESC
+
+SELECT AVG(AvgStandardCost) Average_of_AvgStandardCost
+FROM #ProductCostStatistics
+
+DROP TABLE #ProductCostStatistics
+
+--Creating a Table Variable to Hold a Temporary Result Set
+
+DECLARE @ProductCostStatistics TABLE
+( ProductID int NOT NULL PRIMARY KEY,
+AvgStandardCost money NOT NULL,
+ProductCount int NOT NULL)
+
+INSERT @ProductCostStatistics
+(ProductID, AvgStandardCost, ProductCount)
+SELECT ProductID,
+AVG(StandardCost) AvgStandardCost,
+COUNT(ProductID) Rowcnt
+FROM Production.ProductCostHistory
+GROUP BY ProductID
+
+SELECT TOP 3 *
+FROM @ProductCostStatistics
+ORDER BY ProductCount
+
+--Implementing Table Partitioning
+
+ALTER DATABASE AdventureWorks
+ADD FILEGROUP hitfg1
+
+ALTER DATABASE AdventureWorks
+ADD FILEGROUP hitfg2
+
+ALTER DATABASE AdventureWorks
+ADD FILEGROUP hitfg3
+
+ALTER DATABASE AdventureWorks
+ADD FILEGROUP hitfg4
+
+ALTER DATABASE AdventureWorks
+ADD FILE
+( NAME = awhitfg1,
+FILENAME = 'c:\Program Files\Microsoft SQL
+Server\MSSQL.1\MSSQL\Data\aw_hitfg1.ndf',
+SIZE = 1MB
+)
+TO FILEGROUP hitfg1
+GO
+
+ALTER DATABASE AdventureWorks
+ADD FILE
+( NAME = awhitfg2,
+FILENAME = 'c:\Program Files\Microsoft SQL
+Server\MSSQL.1\MSSQL\Data\aw_hitfg2.ndf',
+SIZE = 1MB
+)
+TO FILEGROUP hitfg2
+GO
+
+ALTER DATABASE AdventureWorks
+ADD FILE
+( NAME = awhitfg3,
+FILENAME = 'c:\Program Files\Microsoft SQL
+Server\MSSQL.1\MSSQL\Data\aw_hitfg3.ndf',
+SIZE = 1MB
+)
+TO FILEGROUP hitfg3
+GO
+
+ALTER DATABASE AdventureWorks
+ADD FILE
+( NAME = awhitfg4,
+FILENAME = 'c:\Program Files\Microsoft SQL
+Server\MSSQL.1\MSSQL\Data\aw_hitfg4.ndf',
+SIZE = 1MB
+)
+TO FILEGROUP hitfg4
+GO
+
+CREATE PARTITION FUNCTION HitDateRange (datetime)
+AS RANGE LEFT FOR VALUES ('1/1/2003', '1/1/2004', '1/1/2005')
+GO
+
+CREATE PARTITION SCHEME HitDateRangeScheme
+AS PARTITION HitDateRange
+TO ( hitfg1, hitfg2, hitfg3, hitfg4 )
+
+CREATE TABLE Sales.WebSiteHits
+(WebSiteHitID bigint NOT NULL IDENTITY(1,1),
+WebSitePage varchar(255) NOT NULL,
+HitDate datetime NOT NULL,
+CONSTRAINT PK_WebSiteHits
+PRIMARY KEY (WebSiteHitID, HitDate))
+ON [HitDateRangeScheme] (HitDate)
+
+--Determining the Location of Data in a Partition
+
+INSERT Sales.WebSiteHits
+(WebSitePage, HitDate)
+VALUES ('Home Page', '10/22/2004')
+
+INSERT Sales.WebSiteHits
+(WebSitePage, HitDate)
+VALUES ('Home Page', '10/2/2001')
+
+INSERT Sales.WebSiteHits
+(WebSitePage, HitDate)
+VALUES ('Sales Page', '5/9/2005')
+
+INSERT Sales.WebSiteHits
+(WebSitePage, HitDate)
+VALUES ('Sales Page', '3/4/2003')
+
+SELECT HitDate,
+$PARTITION.HitDateRange (HitDate) Partition
+FROM Sales.WebSiteHits
+
+--Adding a New Partition
+
+ALTER PARTITION SCHEME HitDateRangeScheme
+NEXT USED [PRIMARY]
+
+ALTER PARTITION FUNCTION HitDateRange ()
+SPLIT RANGE ('1/1/2006')
+
+INSERT Sales.WebSiteHits
+(WebSitePage, HitDate)
+VALUES ('Sales Page', '3/4/2006')
+
+SELECT HitDate,
+$PARTITION.HitDateRange (HitDate) Partition
+FROM Sales.WebSiteHits
+
+--Removing a Partition
+
+ALTER PARTITION FUNCTION HitDateRange ()
+MERGE RANGE ('1/1/2004')
+
+SELECT HitDate,
+$PARTITION.HitDateRange (HitDate) Partition
+FROM Sales.WebSiteHits
+
+--Moving a Partition to a Different Table
+
+CREATE TABLE Sales.WebSiteHitsHistory
+(WebSiteHitID bigint NOT NULL IDENTITY(1,1),
+WebSitePage varchar(255) NOT NULL,
+HitDate datetime NOT NULL,
+CONSTRAINT PK_WebSiteHitsHistory
+PRIMARY KEY (WebSiteHitID, HitDate))
+ON [HitDateRangeScheme] (HitDate)
+
+ALTER TABLE Sales.WebSiteHits SWITCH PARTITION 3
+TO Sales.WebSiteHitsHistory PARTITION 3
+
+SELECT HitDate,
+$PARTITION.HitDateRange (HitDate) Partition
+FROM Sales.WebSiteHitsHistory
+
+--Removing Partition Functions and Schemes
+
+DROP TABLE Sales.WebSiteHitsHistory
+DROP TABLE Sales.WebSiteHits
+-- Dropping the partition scheme and function
+DROP PARTITION SCHEME HitDateRangeScheme
+DROP PARTITION FUNCTION HitDateRange
+
+--Placing a Table on a Filegroup
+
+ALTER DATABASE AdventureWorks
+ADD FILEGROUP AW_FG2
+GO
+
+ALTER DATABASE AdventureWorks
+ADD FILE
+( NAME = AW_F2,
+FILENAME = 'c:\Program Files\Microsoft SQL Server\MSSQL.1\MSSQL\Data\aw_f2.ndf',
+SIZE = 1MB
+)
+TO FILEGROUP AW_FG2
+GO
+
+CREATE TABLE HumanResources.AWCompany(
+AWCompanyID int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+ParentAWCompanyID int NULL,
+AWCompanyNM varchar(25) NOT NULL,
+CreateDT datetime NOT NULL DEFAULT (getdate())
+) ON AW_FG2
+
+CREATE TABLE HumanResources.EWCompany(
+EWCompanyID int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+ParentEWCompanyID int NULL,
+EWCompanyName varchar(25) NOT NULL,
+HeadQuartersImage varbinary(max) NULL,
+CreateDT datetime NOT NULL DEFAULT (getdate())
+) ON [PRIMARY]
+TEXTIMAGE_ON AW_FG2

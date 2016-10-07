@@ -1,0 +1,194 @@
+--Reporting SQL Server 2005 Assignable Permissions
+
+SELECT class_desc, permission_name, covering_permission_name,
+parent_class_desc, parent_covering_permission_name
+FROM sys.fn_builtin_permissions(DEFAULT)
+ORDER BY class_desc, permission_name
+
+SELECT permission_name, covering_permission_name, parent_class_desc
+FROM sys.fn_builtin_permissions('schema')
+ORDER BY permission_name
+
+--Managing Server Permissions
+
+USE master
+GO
+GRANT ALTER TRACE TO Veronica
+WITH GRANT OPTION
+
+USE master
+GO
+GRANT CREATE ANY DATABASE, VIEW ANY DATABASE TO [JOEPROD\TestUser]
+
+DENY SHUTDOWN TO [JOEPROD\TestUser]
+
+USE master
+GO
+REVOKE ALTER TRACE FROM Veronica CASCADE
+
+--Managing Database Permissions
+
+USE TestDB
+GO
+GRANT ALTER ANY ASSEMBLY, ALTER ANY CERTIFICATE
+TO VERONICA
+
+USE TestDB
+GO
+DENY ALTER ANY DATABASE DDL TRIGGER TO Danny
+GO
+
+USE TestDB
+GO
+REVOKE CONNECT FROM Joe
+GO
+
+--Managing Schemas
+
+USE TestDB
+GO
+CREATE SCHEMA Publishers AUTHORIZATION db_owner
+
+CREATE TABLE Publishers.ISBN
+(ISBN char(13) NOT NULL PRIMARY KEY,
+CreateDT datetime NOT NULL DEFAULT GETDATE())
+
+USE master
+GO
+CREATE LOGIN Veronica
+WITH PASSWORD=N'test123',
+DEFAULT_DATABASE=TestDB,
+CHECK_EXPIRATION=OFF,
+CHECK_POLICY=OFF
+GO
+
+USE TestDB
+GO
+CREATE USER Veronica
+FOR LOGIN Veronica
+GO
+
+USE TestDB
+GO
+ALTER USER Veronica
+WITH DEFAULT_SCHEMA=Publishers
+GO
+
+ALTER SCHEMA dbo TRANSFER Publishers.ISBN
+GO
+DROP SCHEMA Publishers
+
+--Managing Schema Permissions
+
+USE AdventureWorks
+GO
+SELECT s.name SchemaName, d.name SchemaOwnerName
+FROM sys.schemas s
+INNER JOIN sys.database_principals d ON
+s.principal_id= d.principal_id
+ORDER BY s.name
+
+GRANT TAKE OWNERSHIP
+ON SCHEMA ::Person
+TO Angela
+
+GRANT ALTER, EXECUTE, SELECT
+ON SCHEMA ::Production
+TO Veronica
+WITH GRANT OPTION
+
+DENY INSERT, UPDATE, DELETE
+ON SCHEMA ::Production
+TO Veronica
+
+REVOKE ALTER, SELECT
+ON SCHEMA ::Production
+TO Veronica
+CASCADE
+
+--Managing Object Permissions
+
+GRANT DELETE, INSERT, SELECT, UPDATE
+ON HumanResources.Department
+TO Joe
+
+GRANT EXECUTE, VIEW DEFINITION
+ON dbo.uspGetManagerEmployees
+TO ReportViewers
+
+DENY ALTER ON HumanResources.Department TO Joe
+
+REVOKE INSERT, UPDATE, DELETE
+ON HumanResources.Department
+TO Joe
+
+--Determining a Current Connection’s Permissions to a Securable
+
+SELECT Has_perms_by_name ('AdventureWorks', 'DATABASE', 'ALTER')
+
+SELECT CASE Has_perms_by_name ('Person.Address', 'OBJECT', 'UPDATE')
+WHEN 1 THEN 'Yes'
+ELSE 'No'
+END UpdateTable,
+CASE Has_perms_by_name ('Person.Address', 'OBJECT', 'SELECT')
+WHEN 1 THEN 'Yes'
+ELSE 'No'
+END SelectFromTable
+
+--Reporting the Permissions For a Principal by Securable Scope
+
+SELECT permission_name
+FROM fn_my_permissions(NULL, N'SERVER')
+ORDER BY permission_name
+
+EXECUTE AS LOGIN = N'Veronica'
+GO
+SELECT permission_name
+FROM fn_my_permissions(NULL, N'SERVER')
+ORDER BY permission_name
+GO
+REVERT
+GO
+
+EXECUTE AS USER = N'Veronica'
+GO
+SELECT permission_name
+FROM fn_my_permissions(N'AdventureWorks', N'DATABASE')
+ORDER BY permission_name
+GO
+REVERT
+GO
+
+SELECT subentity_name, permission_name
+FROM fn_my_permissions(N'Production.Culture', N'OBJECT')
+ORDER BY permission_name, subentity_name
+
+--Changing Securable Ownership
+
+ALTER AUTHORIZATION ON Schema::HumanResources
+TO Veronica
+
+SELECT p.name OwnerName
+FROM sys.endpoints e
+INNER JOIN sys.server_principals p ON
+e.principal_id = p.principal_id
+WHERE e.name = 'ProductWebsite'
+
+ALTER AUTHORIZATION ON Endpoint::ProductWebSite
+TO Veronica
+
+--Allowing SQL Logins to Access Non-SQL Server Resources
+
+USE master
+GO
+CREATE CREDENTIAL AccountingGroup
+WITH IDENTITY = N'JOEPROD\AccountUser1',
+SECRET = N'mypassword!'
+
+USE master
+GO
+ALTER LOGIN Veronica
+WITH CREDENTIAL = AccountingGroup
+GO
+
+-- 

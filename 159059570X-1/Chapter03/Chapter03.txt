@@ -1,0 +1,62 @@
+--Using Explicit Transactions
+
+-- Before count
+SELECT COUNT(*) BeforeCount FROM HumanResources.Department
+-- Variable to hold the latest error integer value
+DECLARE @Error int
+BEGIN TRANSACTION
+INSERT HumanResources.Department
+(Name, GroupName)
+VALUES ('Accounts Payable', 'Accounting')
+SET @Error = @@ERROR
+IF (@Error<> 0) GOTO Error_Handler
+INSERT HumanResources.Department
+(Name, GroupName)
+VALUES ('Engineering', 'Research and Development')
+SET @Error = @@ERROR
+IF (@Error <> 0) GOTO Error_Handler
+COMMIT TRAN
+Error_Handler:
+IF @Error <> 0
+BEGIN
+ROLLBACK TRANSACTION
+END
+-- After count
+SELECT COUNT(*) AfterCount FROM HumanResources.Department
+
+--Displaying the Oldest Active Transaction with DBCC OPENTRAN
+
+BEGIN TRANSACTION
+DELETE Production.ProductProductPhoto
+WHERE ProductID = 317
+DBCC OPENTRAN('AdventureWorks')
+ROLLBACK TRAN
+
+--Viewing Lock Activity
+
+USE AdventureWorks
+BEGIN TRAN
+SELECT ProductID, DocumentID, ModifiedDate
+FROM Production.ProductDocument
+WITH (TABLOCKX)
+
+SELECT request_session_id sessionid,
+resource_type type,
+resource_database_id dbid,
+OBJECT_NAME(resource_associated_entity_id) objectname,
+request_mode rmode,
+request_status rstatus
+FROM sys.dm_tran_locks
+
+--Using SET LOCK TIMEOUT
+
+SET LOCK_TIMEOUT 1000
+
+UPDATE Production.ProductInventory
+SET Quantity = 406
+WHERE ProductID = 1 AND
+
+
+
+
+LocationID = 1

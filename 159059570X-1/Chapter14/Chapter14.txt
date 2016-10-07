@@ -1,0 +1,283 @@
+--Creating xml Data Type Columns
+
+CREATE TABLE dbo.Book
+(BookID int IDENTITY(1,1) PRIMARY KEY,
+ISBNNBR char(10) NOT NULL,
+BookNM varchar(250) NOT NULL,
+AuthorID int NOT NULL,
+ChapterDESC XML NULL)
+
+DECLARE @Book XML
+SET @Book =
+CAST('<Book name="SQL Server 2000 Fast Answers">
+<Chapters>
+<Chapter id="1"> Installation, Upgrades... </Chapter>
+<Chapter id="2"> Configuring SQL Server </Chapter>
+<Chapter id="3"> Creating and Configuring Databases </Chapter>
+<Chapter id="4"> SQL Server Agent and SQL Logs </Chapter>
+</Chapters>
+</Book>' as XML)
+
+CREATE PROCEDURE dbo.usp_INS_Book
+@ISBNNBR char(10),
+@BookNM varchar(250),
+@AuthorID int,
+@ChapterDESC xml
+AS
+INSERT dbo.Book
+(ISBNNBR, BookNM, AuthorID, ChapterDESC)
+VALUES (@ISBNNBR, @BookNM, @AuthorID, @ChapterDESC)
+GO
+
+--Inserting xml Data into a Column
+
+INSERT dbo.Book
+(ISBNNBR, BookNM, AuthorID, ChapterDESC)
+VALUES ('570X000000',
+'SQL Server 2005 T-SQL Recipes',
+55,
+CAST('<Book name="SQL Server 2005 T-SQL Recipes">
+<Chapters>
+<Chapter id="1"> SELECT </Chapter>
+<Chapter id="2"> INSERT,UPDATE,DELETE </Chapter>
+<Chapter id="3"> Transactions, Locking, Blocking, and Deadlocking </Chapter>
+<Chapter id="4"> Tables </Chapter>
+<Chapter id="5"> Indexes </Chapter>
+<Chapter id="6"> Full-text search </Chapter>
+</Chapters>
+</Book>' as XML))
+
+DECLARE @Book XML
+SET @Book =
+CAST('<Book name="SQL Server 2000 Fast Answers">
+<Chapters>
+<Chapter id="1"> Installation, Upgrades... </Chapter>
+<Chapter id="2"> Configuring SQL Server </Chapter>
+<Chapter id="3"> Creating and Configuring Databases </Chapter>
+<Chapter id="4"> SQL Server Agent and SQL Logs </Chapter>
+</Chapters>
+</Book>' as XML)
+
+INSERT dbo.Book
+(ISBNNBR, BookNM, AuthorID, ChapterDESC)
+VALUES ('1590591615',
+'SQL Server 2000 Fast Answers',
+55,
+@Book)
+
+--Validating XML Data Using Schemas
+
+CREATE XML SCHEMA COLLECTION BookStoreCollection
+AS
+N'<xsd:schema targetNamespace="http://JOEPROD/BookStore"
+xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:sqltypes="http://schemas.microsoft.com/sqlserver
+/2004/sqltypes" elementFormDefault="qualified">
+<xsd:import namespace=
+"http://schemas.microsoft.com/sqlserver/2004/sqltypes" />
+<xsd:element name="Book">
+<xsd:complexType>
+<xsd:sequence>
+<xsd:element name="BookName" minOccurs="0">
+<xsd:simpleType>
+<xsd:restriction base="sqltypes:varchar">
+<xsd:maxLength value="50" />
+</xsd:restriction>
+</xsd:simpleType>
+</xsd:element>
+<xsd:element name="ChapterID" type="sqltypes:int"
+minOccurs="0" />
+<xsd:element name="ChapterNM" minOccurs="0">
+<xsd:simpleType>
+<xsd:restriction base="sqltypes:varchar">
+<xsd:maxLength value="50" />
+</xsd:restriction>
+</xsd:simpleType>
+</xsd:element>
+</xsd:sequence>
+</xsd:complexType>
+</xsd:element>
+</xsd:schema>'
+
+SELECT name
+FROM sys.XML_schema_collections
+ORDER BY create_date
+
+SELECT n.name
+FROM sys.XML_schema_namespaces n
+INNER JOIN sys.XML_schema_collections c ON
+c.XML_collection_id = n.XML_collection_id
+WHERE c.name = 'BookStoreCollection'
+
+CREATE TABLE dbo.BookInfoExport
+(BookID int IDENTITY(1,1) PRIMARY KEY,
+ISBNNBR char(10) NOT NULL,
+BookNM varchar(250) NOT NULL,
+AuthorID int NOT NULL,
+ChapterDESC XML (BookStoreCollection) NULL)
+
+DECLARE @Book XML (DOCUMENT BookStoreCollection)
+
+--Retrieving XML Data
+
+
+CREATE TABLE dbo.BookInvoice
+(BookInvoiceID int IDENTITY(1,1) PRIMARY KEY,
+BookInvoiceXML XML NOT NULL)
+GO
+
+INSERT dbo.BookInvoice
+(BookInvoiceXML)
+VALUES ('<BookInvoice invoicenumber="1" customerid="22" orderdate="7/1/2005">
+<OrderItems>
+<Item id="22" qty="1" name="SQL Fun in the Sun"/>
+<Item id="24" qty="1" name="T-SQL Crossword Puzzles"/>
+</OrderItems>
+</BookInvoice>')
+
+INSERT dbo.BookInvoice
+(BookInvoiceXML)
+VALUES ('<BookInvoice invoicenumber="1" customerid="40" orderdate="7/11/2005">
+<OrderItems>
+<Item id="11" qty="1" name="MCDBA Cliff Notes"/>
+</OrderItems>
+</BookInvoice>')
+
+INSERT dbo.BookInvoice
+(BookInvoiceXML)
+VALUES ('<BookInvoice invoicenumber="1" customerid="9" orderdate="7/22/2005">
+<OrderItems>
+<Item id="11" qty="1" name="MCDBA Cliff Notes"/>
+<Item id="24" qty="1" name="T-SQL Crossword Puzzles"/>
+</OrderItems>
+</BookInvoice>')
+
+SELECT BookInvoiceID
+FROM dbo.BookInvoice
+WHERE BookInvoiceXML.exist
+('/BookInvoice/OrderItems/Item[@id=11]') = 1
+
+DECLARE @BookInvoiceXML XML
+SELECT @BookInvoiceXML = BookInvoiceXML
+FROM dbo.BookInvoice
+WHERE BookInvoiceID = 2
+SELECT BookID.value('@id','integer') BookID
+FROM @BookInvoiceXML.nodes('/BookInvoice/OrderItems/Item')
+AS BookTable(BookID)
+
+SELECT @BookInvoiceXML = BookInvoiceXML
+FROM dbo.BookInvoice
+WHERE BookInvoiceID = 2
+
+SELECT @BookInvoiceXML.query('/BookInvoice/OrderItems/Item')
+
+SELECT DISTINCT
+BookInvoiceXML.value
+('(/BookInvoice/OrderItems/Item/@name)[1]', 'varchar(30)') as BookTitles
+FROM dbo.BookInvoice
+UNION
+SELECT DISTINCT
+BookInvoiceXML.value
+('(/BookInvoice/OrderItems/Item/@name)[2]', 'varchar(30)')
+FROM dbo.BookInvoice
+
+--Modifying XML Data
+
+
+
+UPDATE dbo.BookInvoice
+SET BookInvoiceXML.modify
+('insert <Item id="920" qty="1" name="SQL Server 2005 T-SQL Recipes"/>
+into (/BookInvoice/OrderItems)[1]')
+WHERE BookInvoiceID = 2
+
+--Using XML Indexes
+
+CREATE PRIMARY XML INDEX idx_XML_Primary_Book_ChapterDESC
+ON dbo.Book(ChapterDESC)
+GO
+
+CREATE XML INDEX idx_XML_Value_Book_ChapterDESC
+ON dbo.Book(ChapterDESC)
+USING XML INDEX idx_XML_Primary_Book_ChapterDESC
+FOR VALUE
+GO
+
+SELECT name, secondary_type_desc
+FROM sys.XML_indexes
+WHERE object_id = OBJECT_ID('dbo.Book')
+
+--Using FOR XML
+
+SELECT ShiftID, Name
+FROM HumanResources.Shift
+FOR XML RAW('Shift'), ROOT('Shifts'), TYPE
+
+SELECT TOP 3 EmployeeID,
+Shift.Name,
+Department.Name
+FROM HumanResources.EmployeeDepartmentHistory Employee
+INNER JOIN HumanResources.Shift Shift ON
+Employee.ShiftID = Shift.ShiftID
+INNER JOIN HumanResources.Department Department ON
+Employee.DepartmentID = Department.DepartmentID
+ORDER BY EmployeeID
+FOR XML AUTO, TYPE
+
+SELECT TOP 3
+Shift.Name,
+Department.Name,
+EmployeeID
+FROM HumanResources.EmployeeDepartmentHistory Employee
+INNER JOIN HumanResources.Shift Shift ON
+Employee.ShiftID = Shift.ShiftID
+INNER JOIN HumanResources.Department Department ON
+Employee.DepartmentID = Department.DepartmentID
+ORDER BY Shift.Name, Department.Name, EmployeeID
+FOR XML AUTO, TYPE
+
+SELECT TOP 3
+1 AS Tag,
+NULL AS Parent,
+VendorID AS [Vendor!1!VendorID],
+Name AS [Vendor!1!VendorName!ELEMENT],
+CreditRating AS [Vendor!1!CreditRating]
+FROM Purchasing.Vendor
+ORDER BY CreditRating
+FOR XML EXPLICIT, TYPE
+
+SELECT Name as "@Territory",
+CountryRegionCode as "@Region",
+SalesYTD
+FROM Sales.SalesTerritory
+WHERE SalesYTD > 6000000
+ORDER BY SalesYTD DESC
+FOR XML PATH('TerritorySales'), ROOT('CompanySales'), TYPE
+
+--Using OPENXML
+
+CREATE PROCEDURE dbo.usp_SEL_BookXML_Convert_To_Relational
+@XMLDoc xml
+AS
+DECLARE @docpointer int
+
+EXEC sp_XML_preparedocument @docpointer OUTPUT, @XMLdoc
+
+SELECT Chapter, ChapterNM
+FROM OPENXML (@docpointer, '/Book/Chapters/Chapter',0)
+WITH (Chapter int '@id',
+ChapterNM varchar(50) '@name' )
+GO
+
+DECLARE @XMLdoc XML
+SET @XMLdoc =
+'<Book name="SQL Server 2000 Fast Answers">
+<Chapters>
+<Chapter id="1" name="Installation, Upgrades"/>
+<Chapter id="2" name="Configuring SQL Server"/>
+<Chapter id="3" name="Creating and Configuring Databases"/>
+<Chapter id="4" name="SQL Server Agent and SQL Logs"/>
+</Chapters>
+</Book>'
+
+EXEC dbo.usp_SEL_BookXML_Convert_To_Relational @XMLdoc

@@ -1,0 +1,63 @@
+--Changing the Name of a User-Created Database Object
+
+USE AdventureWorks
+GO
+
+-- Add example objects
+CREATE TABLE HumanResources.InsuranceProvider
+(InsuranceProviderID int NOT NULL,
+InsuranceProviderNM varchar(50) NOT NULL
+)
+GO
+
+CREATE INDEX ni_InsuranceProvider_InsuranceProviderID
+ON HumanResources.InsuranceProvider (InsuranceProviderID)
+
+-- Rename the table
+EXEC sp_rename 'HumanResources.InsuranceProvider',
+'Provider',
+'Object'
+
+-- Rename a column
+EXEC sp_rename 'HumanResources.Provider.InsuranceProviderID',
+'ProviderID',
+'Column'
+
+-- Rename the primary key constraint
+EXEC sp_rename 'HumanResources.Provider.ni_InsuranceProvider_InsuranceProviderID',
+'ni_Provider_ProviderID',
+'Index'
+
+-- Changing an Object’s Schema
+
+ALTER SCHEMA schema_name TRANSFER object_name
+
+Use AdventureWorks
+GO
+CREATE TABLE Sales.TerminationReason
+(TerminationReasonID int NOT NULL PRIMARY KEY,
+TerminationReasonDESC varchar(100) NOT NULL)
+GO
+
+ALTER SCHEMA HumanResources TRANSFER Sales.TerminationReason
+GO
+
+--Displaying Information on Database Object Dependencies
+
+EXEC sp_depends 'dbo.ufnGetContactInformation'
+
+EXEC sp_depends 'Purchasing.VendorContact'
+
+--Viewing an Object’s Definition
+
+USE AdventureWorks
+GO
+SELECT OBJECT_DEFINITION
+(OBJECT_ID('dbo.ufnGetAccountingEndDate'))
+GO
+
+USE AdventureWorks
+GO
+SELECT OBJECT_DEFINITION(OBJECT_ID('sys.sp_depends'))
+GO
+

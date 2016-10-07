@@ -1,0 +1,58 @@
+--Creating and Querying Database Snapshots
+
+CREATE DATABASE AdventureWorks_Snapshot_Oct_08_2005
+ON
+( NAME = AdventureWorks_Data,
+FILENAME =
+'C:\Apress\Recipes\AdventureWorks_Snapshot_Oct_08_2005.mdf
+')
+AS SNAPSHOT OF AdventureWorks
+GO
+
+USE AdventureWorks
+GO
+INSERT HumanResources.Department
+(Name, GroupName)
+VALUES ('Accounting Temps', 'AR')
+GO
+
+SELECT Name
+FROM AdventureWorks.HumanResources.Department
+WHERE GroupName = 'AR'
+
+SELECT Name
+FROM
+AdventureWorks_Snapshot_Oct_08_2005.HumanResources.Department
+WHERE GroupName = 'AR'
+
+--Removing a Database Snapshot
+
+DROP DATABASE AdventureWorks_Snapshot_Oct_08_2005
+
+--Recovering Data with a Database Snapshot
+
+CREATE DATABASE AdventureWorks_Snapshot_Oct_09_2005
+ON
+( NAME = AdventureWorks_Data,
+FILENAME = 'C:\Apress\Recipes\AdventureWorks_Snapshot_Oct_09_2005.mdf')
+AS SNAPSHOT OF AdventureWorks
+GO
+
+UPDATE Sales.Customer
+SET CustomerType = 'S'
+
+SELECT CustomerType, COUNT(*) RowCnt
+FROM Sales.Customer
+GROUP BY CustomerType
+
+USE master
+GO
+RESTORE DATABASE AdventureWorks
+FROM DATABASE_SNAPSHOT = 'AdventureWorks_Snapshot_Oct_09_2005'
+
+USE AdventureWorks
+GO
+SELECT CustomerType, COUNT(*) RowCnt
+FROM Sales.Customer
+GROUP BY CustomerType
+

@@ -1,0 +1,184 @@
+--Capturing Executing Queries using sys.dm_exec_requests
+
+SELECT r.session_id, r.status, r.start_time, r.command, s.text
+FROM sys.dm_exec_requests r
+CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) s
+WHERE r.status = 'running'
+
+--Viewing Estimated Query Execution Plans Using Transact-SQL
+Commands
+
+SET SHOWPLAN_TEXT ON
+GO
+
+SELECT p.Name, p.ProductNumber, r.ReviewerName
+FROM Production.Product p
+INNER JOIN Production.ProductReview r ON
+p.ProductID = r.ProductID
+WHERE r.Rating > 2
+GO
+
+SET SHOWPLAN_TEXT OFF
+GO
+
+SET SHOWPLAN_XML ON
+GO
+
+SELECT p.Name, p.ProductNumber, r.ReviewerName
+FROM Production.Product p
+INNER JOIN Production.ProductReview r ON
+p.ProductID = r.ProductID
+WHERE r.Rating > 2
+GO
+
+SET SHOWPLAN_XML OFF
+GO
+
+--Forcing SQL Server 2005 to Use a Query Plan
+
+SET STATISTICS XML ON
+SELECT TOP 10 Rate
+FROM HumanResources.EmployeePayHistory
+ORDER BY Rate DESC
+SET STATISTICS XML OFF
+
+SELECT TOP 10 Rate
+FROM HumanResources.EmployeePayHistory
+ORDER BY Rate DESC
+OPTION (USE PLAN
+'PUT PLAN HERE'
+
+--Viewing Execution Runtime Information
+
+SET STATISTICS IO ON
+GO
+
+SELECT t.name TerritoryNM,
+SUM(TotalDue) TotalDue
+FROM Sales.SalesOrderHeader h
+INNER JOIN Sales.SalesTerritory t ON
+h.TerritoryID = t.TerritoryID
+WHERE OrderDate BETWEEN '1/1/2003' AND '12/31/2003'
+GROUP BY t.name
+ORDER BY t.name
+
+SET STATISTICS IO OFF
+GO
+
+--Viewing Performance Statistics for Cached Query Plans
+
+DBCC FREEPROCCACHE
+GO
+
+SELECT CustomerID, ContactID, Demographics, ModifiedDate
+FROM Sales.Individual
+
+SELECT t.text,
+st.total_logical_reads,
+st.total_physical_reads,
+st.total_elapsed_time/1000000 Total_Time_Secs,
+st.total_logical_writes
+FROM sys.dm_exec_query_stats st
+CROSS APPLY sys.dm_exec_sql_text(st.sql_handle) t
+
+--Manually Creating Statistics
+
+CREATE STATISTICS Stats_Customer_CustomerType
+ON Sales.Customer (CustomerType)
+
+--Updating Statistics
+
+UPDATE STATISTICS Sales.Customer
+Stats_Customer_CustomerType
+WITH FULLSCAN
+
+--Generating and Updating Statistics Across All Tables
+
+EXEC sp_createstats
+GO
+
+EXEC sp_updatestats
+GO
+
+
+--View Statistics Information
+
+DBCC SHOW_STATISTICS ( 'Sales.Customer' , Stats_Customer_CustomerType)
+
+--Removing Statistics
+
+DROP STATISTICS Sales.Customer.Stats_Customer_CustomerType
+
+--Displaying Index Fragmentation
+
+USE AdventureWorks
+GO
+
+SELECT OBJECT_NAME(object_id) ObjectName,
+index_id,
+index_type_desc,
+avg_fragmentation_in_percent
+FROM sys.dm_db_index_physical_stats
+(DB_ID('AdventureWorks'),NULL, NULL, NULL, 'LIMITED')
+WHERE avg_fragmentation_in_percent > 30
+ORDER BY OBJECT_NAME(object_id)
+WITH FULLSCAN
+
+SELECT OBJECT_NAME(f.object_id) ObjectName,
+i.name IndexName,
+f.index_type_desc,
+f.avg_fragmentation_in_percent
+FROM sys.dm_db_index_physical_stats
+(DB_ID('AdventureWorks'),
+OBJECT_ID('Production.ProductDescription'),
+2,
+NULL,
+'LIMITED') f
+INNER JOIN sys.indexes i ON
+i.object_id = f.object_id AND
+i.index_id = f.index_id
+
+--Displaying Index Usage
+
+SELECT *
+FROM Sales.Customer
+
+SELECT AccountNumber
+FROM Sales.Customer
+WHERE TerritoryID = 4
+
+SELECT i.name IndexName, user_seeks, user_scans,
+last_user_seek, last_user_scan
+FROM sys.dm_db_index_usage_stats s
+INNER JOIN sys.indexes i ON
+s.object_id = i.object_id AND
+s.index_id = i.index_id
+WHERE database_id = DB_ID('AdventureWorks') AND
+s.object_id = OBJECT_ID('Sales.Customer')
+
+--Using an Alternative to Dynamic SQL
+
+EXEC ('SELECT CurrencyCode FROM Sales.Currency')
+
+EXECUTE sp_executesql
+N'SELECT TransactionID, ProductID,
+TransactionType, Quantity
+FROM Production.TransactionHistoryArchive
+WHERE ProductID = @ProductID AND
+TransactionType = @TransactionType AND
+Quantity > @Quantity',
+N'@ProductID int,
+@TransactionType char(1),
+@Quantity int',
+@ProductID =813,
+@TransactionType = 'S',
+@Quantity = 5
+
+
+
+
+
+
+
+
+

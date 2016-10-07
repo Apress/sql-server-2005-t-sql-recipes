@@ -1,0 +1,116 @@
+--Creating a Full-Text Catalog
+
+USE AdventureWorks
+GO
+CREATE FULLTEXT CATALOG cat_Production_Document
+
+USE AdventureWorks
+GO
+CREATE FULLTEXT CATALOG cat_Production_Document_EX2
+IN PATH 'C:\Apress\Recipes\FTC'
+WITH ACCENT_SENSITIVITY = ON
+
+--Creating a Full-Text Index
+
+CREATE FULLTEXT INDEX ON Production.Document
+(DocumentSummary, Document TYPE COLUMN FileExtension)
+KEY INDEX PK_Document_DocumentID
+ON cat_Production_Document
+WITH CHANGE_TRACKING AUTO
+
+--Modifying a Full-Text Catalog
+
+ALTER FULLTEXT CATALOG cat_Production_Document
+REORGANIZE
+
+ALTER FULLTEXT CATALOG cat_Production_Document
+AS DEFAULT
+
+ALTER FULLTEXT CATALOG cat_Production_Document
+REBUILD WITH ACCENT_SENSITIVITY = OFF
+
+--Modifying a Full-Text Index
+
+ALTER FULLTEXT INDEX ON Production.Document
+ADD (Title)
+
+ALTER FULLTEXT INDEX ON Production.Document
+START FULL POPULATION
+
+ALTER FULLTEXT INDEX ON Production.Document
+SET CHANGE_TRACKING OFF
+
+ALTER FULLTEXT INDEX ON Production.Document
+DROP (Title)
+
+--Dropping a Full-Text Catalog
+
+DROP FULLTEXT CATALOG cat_Production_Document
+
+--Dropping a Full-Text Index
+
+DROP FULLTEXT INDEX ON Production.Document
+
+--Retrieving Full-Text Catalog and Index Metadata
+
+SELECT name, path, is_default, is_accent_sensitivity_on
+FROM sys.fulltext_catalogs
+
+SELECT object_name(object_id) table_name, is_active, change_tracking_state_desc
+FROM sys.fulltext_indexes
+
+SELECT object_name(object_id) tblname, column_id
+FROM sys.fulltext_index_columns
+
+SELECT FULLTEXTCATALOGPROPERTY ('cat_Production_Document','PopulateStatus')
+PopulationStatus
+
+--Using FREETEXT to Search Full-Text Indexed Columns
+
+SELECT DocumentID, DocumentSummary
+FROM Production.Document
+WHERE FREETEXT (DocumentSummary, 'change pedal' )
+
+--Using CONTAINS for Word Searching
+
+SELECT DocumentID, DocumentSummary
+FROM Production.Document
+WHERE CONTAINS (DocumentSummary, '"replacing" OR "pedals"' )
+
+--Use CONTAINS to Search with Wildcards
+
+SELECT DocumentID, DocumentSummary
+FROM Production.Document
+WHERE CONTAINS (DocumentSummary, '"import*"' )
+
+--Using CONTAINS to Search for Inflectional Matches
+
+SELECT DocumentID, DocumentSummary
+FROM Production.Document
+WHERE CONTAINS(DocumentSummary, ' FORMSOF (INFLECTIONAL, replace) ')
+
+
+
+--Using CONTAINS for Searching Results by Term Proximity
+
+SELECT DocumentSummary
+FROM Production.Document
+WHERE CONTAINS(DocumentSummary, 'oil NEAR grease')
+
+--Returning Ranked Search Results by Meaning
+
+SELECT f.RANK, DocumentID, DocumentSummary
+FROM Production.Document d
+INNER JOIN FREETEXTTABLE(Production.Document, DocumentSummary, 'bicycle seat') f
+ON d.DocumentID = f.[KEY]
+ORDER BY RANK DESC
+
+--Returning Ranked Search Results by Weighted Value
+
+SELECT f.RANK, d.DocumentID, d.DocumentSummary
+FROM Production.Document d
+INNER JOIN CONTAINSTABLE(Production.Document, DocumentSummary,
+'ISABOUT ( bicycle weight (.9), seat weight (.1))') f
+ON d.DocumentID = f.[KEY]
+ORDER BY RANK DESC
+
